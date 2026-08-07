@@ -1,0 +1,14 @@
+# Normalise line endings so the repo is identical on Windows and Linux
+# (dev is Windows, deploy is Linux).
+* text=auto eol=lf
+
+# Binary — never touch
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.sqlite3 binary
