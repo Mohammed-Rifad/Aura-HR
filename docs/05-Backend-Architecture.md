@@ -14,7 +14,7 @@
 5. Layered Architecture
 6. API Architecture
 7. Service Layer Design
-8. Repository Layer Design
+8. Data Access with Model Managers
 9. Model Design Principles
 10. Authentication Architecture
 11. Authorization System
@@ -124,7 +124,7 @@ View
  ↓
 EmployeeService
  ↓
-Repository
+Employee.objects  (model manager)
  ↓
 Database
 ```
@@ -223,13 +223,13 @@ Responsible for:
 AURA HR follows a four-layer backend architecture.
 
 ```
-              API Layer
+              API Layer          views, serializers, permissions
                  ↓
-          Service Layer
+          Service Layer          business rules, transactions, audit
                  ↓
-       Repository Layer
+     Model / Manager Layer       queries and persistence
                  ↓
-          Database Layer
+             Database
 ```
 
 ## 5.1 API Layer
@@ -276,21 +276,23 @@ Contains business logic.
 
 ---
 
-## 5.3 Repository Layer
-**Purpose:** Database abstraction.
+## 5.3 Model / Manager Layer
+**Purpose:** Queries and persistence.
 
-**Example Functions:**
+There is no separate repository layer — Django's model manager already is one.
+Reusable queries live on custom managers.
 
-*Employee Repository:*
-- `get_employee()`
-- `search_employee()`
-- `save_employee()`
-- `delete_employee()`
+**Example — `EmployeeManager`:**
+- `active()`
+- `for_manager(user)`
+- `with_expiring_documents(days)`
 
 **Benefits:**
-- Cleaner code
-- Easier testing
-- Database independence
+- Named, reusable queries
+- Still lazy and chainable, so `select_related` and pagination keep working
+- One less layer to maintain
+
+See ADR-008 in `03-System-Architecture.md`.
 
 ---
 
@@ -331,7 +333,7 @@ EmployeeService
  ↓
 Validation
  ↓
-EmployeeRepository
+Employee.objects
  ↓
 Database
  ↓
@@ -342,21 +344,47 @@ Notification
 
 ---
 
-# 8. Repository Pattern
+# 8. Data Access with Model Managers
 
-Example: **Employee Repository**
+We do not implement the repository pattern separately. `Model.objects` is
+already a repository, and wrapping it costs more than it returns — a wrapper
+that returns lists instead of querysets breaks laziness, chaining,
+`select_related`, and pagination.
+
+Reusable queries go on a custom manager:
 
 ```python
-class EmployeeRepository:
-    def get_by_id(self, id):
-        pass
+class EmployeeManager(models.Manager):
+    def active(self):
+        return self.filter(status=Employee.Status.ACTIVE)
 
-    def create(self, data):
-        pass
+    def for_manager(self, user):
+        """Only the people who report to this user."""
+        return self.active().filter(manager__user=user)
 
-    def update(self, id, data):
-        pass
+    def with_expiring_documents(self, days=30):
+        cutoff = timezone.now().date() + timedelta(days=days)
+        return self.active().filter(
+            documents__expiry_date__lte=cutoff
+        ).distinct()
 ```
+
+Used from a service:
+
+```python
+def list_team(manager_user):
+    return Employee.objects.for_manager(manager_user).select_related("department")
+```
+
+Rule of thumb for where logic goes:
+
+| Situation | Put it in |
+|---|---|
+| One model, plain save | Serializer |
+| Multiple models, rules, or a transaction | Service |
+| A query you write more than once | Manager |
+
+See ADR-008 in `03-System-Architecture.md`.
 
 ---
 

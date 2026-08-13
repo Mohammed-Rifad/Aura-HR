@@ -4089,7 +4089,7 @@ Employee Service
 
 ↓
 
-Repository
+Model Manager
 
 ↓
 
@@ -5968,9 +5968,7 @@ Clean Architecture
 
 Service Layer
 
-Repository Pattern
-
-Dependency Injection
+Custom Model Managers
 
 Modular Apps
 

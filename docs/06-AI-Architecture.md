@@ -334,7 +334,7 @@ New Employee Record Added
 AI Agents do not execute direct SQL statements or interact directly with raw datastores. All system operations are encapsulated inside permissioned business tools.
 
 ```
-AI Agent ──> Tool Interface ──> Django Service Layer ──> Repository ──> PostgreSQL
+AI Agent ──> Tool Interface ──> Django Service Layer ──> Model Manager ──> PostgreSQL
 ```
 
 ### Example Tool Definition (`get_employee_details`)

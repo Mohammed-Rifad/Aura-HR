@@ -289,7 +289,7 @@ Provides document processing, information extraction, and automated content anal
 Agents do not execute direct SQL commands or access datastores directly. All tool calls execute through the validated Django Service Layer.
 
 ```text
-AI Agent ──> Tool Function Interface ──> Django Service Layer ──> Repository ──> PostgreSQL
+AI Agent ──> Tool Function Interface ──> Django Service Layer ──> Model Manager ──> PostgreSQL
 ```
 
 ### Python Tool Implementation Example

@@ -926,13 +926,13 @@ Service Layer
 
  |
 
-Repository Layer
+Model / Manager Layer
 
  |
 
  |
 
-Database Layer
+Database
 
 
 
@@ -1015,32 +1015,44 @@ generate_summary()
 
 ---
 
-# 8.3 Repository Layer
-
+# 8.3 Data Access Layer
 
 Purpose:
 
-Separate database operations from business logic.
+Keep database queries out of business logic.
 
+AURA HR does **not** use a separate repository layer. Django's ORM manager is
+already an implementation of the repository pattern — `Employee.objects` is
+the repository. Wrapping it in another class adds boilerplate, loses queryset
+laziness and chaining, and buys nothing: the "database independence" a
+repository is meant to provide is what the ORM already gives us.
+
+Reusable queries live on custom model managers instead.
 
 Example:
 
+```python
+class EmployeeManager(models.Manager):
+    def active(self):
+        return self.filter(status=Employee.Status.ACTIVE)
 
+    def for_manager(self, user):
+        return self.active().filter(manager__user=user)
 
-EmployeeRepository
+    def with_expiring_documents(self, days=30):
+        cutoff = timezone.now().date() + timedelta(days=days)
+        return self.active().filter(documents__expiry_date__lte=cutoff).distinct()
+```
 
-get_employee()
-
-search_employee()
-
-save_employee()
-
+Services call these managers. Views call services.
 
 Benefits:
 
-- Easier testing
-- Database independence
-- Cleaner services
+- Query logic is named and reusable
+- Services stay readable
+- Still fully chainable and lazy, unlike a hand-rolled repository
+
+See ADR-008.
 
 
 ---
@@ -1577,7 +1589,7 @@ Business Service
 
 ↓
 
-Repository
+Model / Manager
 
 ↓
 
@@ -2065,7 +2077,7 @@ Service Layer
 
 ↓
 
-Repository
+Model / Manager
 
 ↓
 
@@ -3249,6 +3261,42 @@ Use Celery + Redis
 
 - Reliable background processing
 - Scheduled tasks
+
+
+---
+
+# ADR-008
+
+## Decision
+
+No repository layer. Use Django model managers for data access, and a service
+layer only where real business logic exists.
+
+## Context
+
+The original design specified API → Service → Repository → Database. In
+practice the repository layer duplicates what Django already provides.
+
+## Alternatives considered
+
+- **Full repository layer** — rejected. Django's `Model.objects` manager is
+  already the repository pattern. A wrapper class returns lists instead of
+  querysets, which breaks laziness, chaining, `select_related`, and
+  pagination.
+- **No service layer either** — rejected. Multi-step operations such as leave
+  approval touch several models, need a transaction, and must write an audit
+  record. That does not belong in a serializer.
+
+## Consequences
+
+- Reusable queries live on custom managers (`Employee.objects.for_manager(u)`)
+- Services own multi-model, transactional, rule-heavy operations
+- Simple single-model writes (login, password change) stay in serializers
+- One fewer layer to maintain, and no impedance mismatch with the ORM
+
+## Status
+
+Accepted, 2026-08-07.
 
 
 ---

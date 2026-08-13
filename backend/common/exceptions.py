@@ -53,7 +53,10 @@ def api_exception_handler(exc, context):
     if isinstance(exc, Http404):
         exc = exceptions.NotFound()
     elif isinstance(exc, PermissionDenied):
-        exc = exceptions.PermissionDenied()
+        # Carry the original message across. Constructing a bare
+        # PermissionDenied() would replace a specific reason ("You are not
+        # allowed to decide this request.") with DRF's generic default.
+        exc = exceptions.PermissionDenied(exc.args[0] if exc.args else None)
     elif isinstance(exc, DjangoValidationError):
         exc = exceptions.ValidationError(exc.message_dict if hasattr(exc, "message_dict") else exc.messages)
 
@@ -84,6 +87,6 @@ def api_exception_handler(exc, context):
         "success": False,
         "message": message,
         "errors": errors,
-        "code": getattr(exc, "default_code", "error"),
+        "code": getattr(exc.detail, "code", None) or getattr(exc, "default_code", "error"),        
     }
     return response

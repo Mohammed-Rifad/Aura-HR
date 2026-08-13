@@ -15,9 +15,10 @@ from drf_spectacular.views import (
 )
 
 api_v1 = [
+    path("auth/", include("users.urls")),
     # App routes are added here as they are built:
-    #   path("auth/", include("users.urls")),
-    #   path("employees/", include("employees.urls")),
+      path("employees/", include("employees.urls")),
+      path("leave/", include("leave.urls")),
 ]
 
 urlpatterns = [

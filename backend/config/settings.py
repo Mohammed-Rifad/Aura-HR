@@ -60,12 +60,16 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",
     "drf_spectacular",
+    # Stores revoked refresh tokens so logout actually revokes something.
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 LOCAL_APPS = [
     "common",
     "users",
     "organizations",
+    "employees",
+    "leave"
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -183,6 +187,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/minute",
         "user": "1000/hour",
+         "login": "5/minute",  
     },
 }
 
@@ -192,6 +197,7 @@ if not DEBUG:
     )
 
 
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(
         minutes=config("JWT_ACCESS_MINUTES", default=30, cast=int)
@@ -199,15 +205,19 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(
         days=config("JWT_REFRESH_DAYS", default=7, cast=int)
     ),
+    "USER_AUTHENTICATION_RULE": "users.auth.verified_user_rule",
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,  # needs the token_blacklist app to enable
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
+    "CHECK_REVOKE_TOKEN": True,
     "SIGNING_KEY": SECRET_KEY,
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
+
+
 
 
 SPECTACULAR_SETTINGS = {
@@ -217,6 +227,12 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/v1",
+    "SERVE_PERMISSIONS": (
+    ["rest_framework.permissions.AllowAny"]
+    if DEBUG
+    else ["rest_framework.permissions.IsAdminUser"]
+),
+
 }
 
 
