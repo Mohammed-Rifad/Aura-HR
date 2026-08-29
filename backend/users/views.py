@@ -6,7 +6,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from audit.models import AuditLog
+from audit.services import log_action
+from django.db import transaction
 from common.permissions import IsAdmin
 
 from .serializers import (
@@ -54,6 +56,7 @@ class UserAdminViewSet(
     ordering_fields = ["email", "date_joined", "role"]
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def verify(self, request, pk=None):
         """
         Clear an account for access.
@@ -68,9 +71,17 @@ class UserAdminViewSet(
             user.is_verified = True
             user.save(update_fields=["is_verified"])
 
+        log_action(
+            action=AuditLog.Action.UPDATE,
+            instance=user,
+            actor=request.user,
+            changes={"is_verified": {"before": "False", "after": "True"}},
+        )
+
         return Response(self.get_serializer(user).data)
 
     @action(detail=True, methods=["post"])
+    @transaction.atomic
     def unverify(self, request, pk=None):
         """Revoke access without touching the record."""
         user = self.get_object()
@@ -83,6 +94,13 @@ class UserAdminViewSet(
         if user.is_verified:
             user.is_verified = False
             user.save(update_fields=["is_verified"])
+
+        log_action(
+            action=AuditLog.Action.UPDATE,
+            instance=user,
+            actor=request.user,
+            changes={"is_verified": {"before": "True", "after": "False"}},
+        )
 
         return Response(self.get_serializer(user).data)
 

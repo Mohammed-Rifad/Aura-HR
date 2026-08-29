@@ -7,11 +7,11 @@ agent. Balance arithmetic only stays correct if exactly one place performs it.
 
 from datetime import timedelta
 from decimal import Decimal
-
-from django.core.exceptions import ValidationError
+from audit.models import AuditLog
+from audit.services import diff, log_action, snapshot
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.utils import timezone
-
 from .models import LeaveBalance, LeaveRequest
 
 WEEKEND = {5, 6}  # Saturday, Sunday — weekday() is 0=Monday
@@ -135,12 +135,20 @@ def apply_leave(*, employee, leave_type, start_date, end_date, reason="", create
     # by approve_leave. Every path out of PENDING must deal with it.
     balance.pending += days
     balance.save(update_fields=["pending", "updated_at"])
+    log_action(
+        action=AuditLog.Action.CREATE,
+        instance=leave_request,
+        actor=created_by,
+        changes={
+            "leave_type": {"before": None, "after": leave_type.code},
+            "dates": {"before": None, "after": f"{start_date} to {end_date}"},
+            "days": {"before": None, "after": str(days)},
+        },
+    )
 
     return leave_request
 
-
-from django.core.exceptions import PermissionDenied, ValidationError
-
+ 
 
 def can_approve(user, leave_request):
     """
@@ -176,6 +184,8 @@ def approve_leave(*, leave_request, approver, note=""):
             f"This request is already {leave_request.get_status_display().lower()}."
         )
 
+    before = snapshot(leave_request, ["status", "approver", "decided_at"])
+
     if not can_approve(approver, leave_request):
         raise PermissionDenied("You are not allowed to decide this request.")
 
@@ -204,7 +214,16 @@ def approve_leave(*, leave_request, approver, note=""):
         ]
     )
 
+    log_action(
+        action=AuditLog.Action.APPROVE,
+        instance=leave_request,
+        actor=approver,
+        changes=diff(before, snapshot(leave_request, ["status", "approver", "decided_at"])),
+    )
+
     return leave_request
+
+    
 
 
 @transaction.atomic
@@ -220,6 +239,8 @@ def reject_leave(*, leave_request, approver, note=""):
         raise ValidationError(
             f"This request is already {leave_request.get_status_display().lower()}."
         )
+
+    before = snapshot(leave_request, ["status", "approver", "decided_at"])
 
     if not can_approve(approver, leave_request):
         raise PermissionDenied("You are not allowed to decide this request.")
@@ -245,6 +266,12 @@ def reject_leave(*, leave_request, approver, note=""):
         ]
     )
 
+    log_action(
+            action=AuditLog.Action.REJECT,
+            instance=leave_request,
+            actor=approver,
+            changes=diff(before, snapshot(leave_request, ["status", "approver", "decided_at"])),
+        )
     return leave_request
 
 

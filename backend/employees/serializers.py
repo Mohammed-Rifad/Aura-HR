@@ -1,12 +1,13 @@
 from django.utils import timezone
 from rest_framework import serializers
-
 from users.serializers import UserSerializer
-
+from organizations.models import Department, Designation
 from .models import Employee, EmployeeDocument
 from .services import create_employee
 from django.contrib.auth import get_user_model
 from pathlib import Path
+from .services import onboard_employee
+
 
 MAX_DOCUMENT_SIZE = 5 * 1024 * 1024          # 5 MB
 ALLOWED_DOCUMENT_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".docx"}
@@ -67,6 +68,20 @@ class EmployeeDocumentSerializer(serializers.ModelSerializer):
 
 
 
+class DepartmentBriefSerializer(serializers.ModelSerializer):
+    """Just enough to fill a dropdown."""
+
+    class Meta:
+        model = Department
+        fields = ["id", "name", "code"]
+
+
+class DesignationBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Designation
+        fields = ["id", "title"]
+
+
 class EmployeeListSerializer(serializers.ModelSerializer):
     """Small payload for the table view."""
 
@@ -92,8 +107,10 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
     """Everything, for the profile page."""
 
     user = UserSerializer(read_only=True)
-    department = serializers.StringRelatedField()
-    designation = serializers.StringRelatedField()
+    department = DepartmentBriefSerializer(read_only=True)
+    designation = DesignationBriefSerializer(read_only=True)
+
+
     manager = EmployeeListSerializer(read_only=True)
     documents = EmployeeDocumentSerializer(many=True, read_only=True)
 
@@ -120,14 +137,21 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     """HR creating or updating someone. Not used for reads."""
 
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(employee__isnull=True)
-    )
+        # Account details. Used on create to make the login; ignored on update,
+    # because an employee's account is not edited from this form.
+    email = serializers.EmailField(write_only=True, required=False)
+    first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    phone = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
 
     class Meta:
         model = Employee
         fields = [
-            "user",
+            "email", "first_name", "last_name", "phone",
+            "department", "designation", "manager",
+            "date_of_birth", "date_of_joining", "date_of_exit",
+            "employment_type", "status",
             "department",
             "designation",
             "manager",
@@ -168,9 +192,13 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
             )
 
         return attrs
-
     def create(self, validated_data):
-        return create_employee(
+        if not validated_data.get("email"):
+            raise serializers.ValidationError(
+                {"email": "An email address is required to create an employee."}
+            )
+
+        return onboard_employee(
             created_by=self.context["request"].user,
             **validated_data,
         )

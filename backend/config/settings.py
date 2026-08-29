@@ -16,6 +16,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Pin .env lookup to backend/ so the server works from any working directory.
 config = AutoConfig(search_path=BASE_DIR)
 
+# ---------------------------------------------------------------------------
+# AI (Days 12–17)
+#
+# The provider lives behind ai/client.py — this and that file are the only
+# places its name appears. Switching provider is a change in two files.
+# ---------------------------------------------------------------------------
+
+GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
+
+# gemini-3.5-flash-lite: 500 requests/day free — enough to build with.
+# gemini-3.7-flash is smarter but capped at 20/day. Switch to it in .env
+# on demo day.
+AI_MODEL = config("AI_MODEL", default="gemini-3.5-flash-lite")
+
+# Day 14 (RAG). Still to decide: Gemini's embedding API (1000/day free) or
+# a local model. Left here so the choice is visible.
+
+# gemini-embedding-2 lets you choose a size; 768 is its recommended one.
+# EMBEDDING_MODEL and EMBEDDING_DIM are a pinned pair — vectors from
+# different models are not comparable, so changing either means
+# re-embedding every chunk already in the database.
+EMBEDDING_MODEL = config("EMBEDDING_MODEL", default="gemini-embedding-2")
+EMBEDDING_DIM = config("EMBEDDING_DIM", default=768, cast=int)
+
 
 # ---------------------------------------------------------------------------
 # Core
@@ -69,7 +93,11 @@ LOCAL_APPS = [
     "users",
     "organizations",
     "employees",
-    "leave"
+    "leave",
+    "audit",
+    "attendance",
+    "dashboard",
+    "ai"
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -90,6 +118,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "audit.middleware.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -126,10 +155,14 @@ if config("DB_ENGINE", default="sqlite") == "postgresql":
             "HOST": config("DB_HOST", default="localhost"),
             "PORT": config("DB_PORT", default="5432"),
             "CONN_MAX_AGE": config("DB_CONN_MAX_AGE", default=60, cast=int),
+            # Neon sleeps on the free tier and closes idle connections.
+            # Django pings before reusing one, and reconnects if it is dead.
+            "CONN_HEALTH_CHECKS": True,
             # Neon (and most managed Postgres) refuse unencrypted connections.
             "OPTIONS": {"sslmode": config("DB_SSLMODE", default="require")},
         }
     }
+
 else:
     DATABASES = {
         "default": {
@@ -187,7 +220,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/minute",
         "user": "1000/hour",
-         "login": "5/minute",  
+        "login": "5/minute",
+        "ai": "20/hour",
+
     },
 }
 
@@ -195,7 +230,6 @@ if not DEBUG:
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = (
         "rest_framework.renderers.JSONRenderer",
     )
-
 
 
 SIMPLE_JWT = {
@@ -218,8 +252,6 @@ SIMPLE_JWT = {
 }
 
 
-
-
 SPECTACULAR_SETTINGS = {
     "TITLE": "AURA HR API",
     "DESCRIPTION": "Enterprise HR platform with an agentic AI layer.",
@@ -228,10 +260,10 @@ SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/v1",
     "SERVE_PERMISSIONS": (
-    ["rest_framework.permissions.AllowAny"]
-    if DEBUG
-    else ["rest_framework.permissions.IsAdminUser"]
-),
+        ["rest_framework.permissions.AllowAny"]
+        if DEBUG
+        else ["rest_framework.permissions.IsAdminUser"]
+    ),
 
 }
 
@@ -301,19 +333,18 @@ EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@aurahr.local")
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL", default="noreply@aurahr.local")
+
 
 
 # ---------------------------------------------------------------------------
 # AI (used from Day 12 — see docs/10-Build-Plan.md)
 # ---------------------------------------------------------------------------
 
-ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY", default="")
-AI_MODEL = config("AI_MODEL", default="claude-opus-5")
+# ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY", default="")
+# AI_MODEL = config("AI_MODEL", default="claude-opus-5")
 
-# Embeddings run locally so employee document content is never sent to a
-# third party for vectorisation. Changing the model means re-indexing every
-# document — treat EMBEDDING_MODEL/EMBEDDING_DIM as a pinned pair.
 EMBEDDING_MODEL = config(
     "EMBEDDING_MODEL", default="sentence-transformers/all-MiniLM-L6-v2"
 )

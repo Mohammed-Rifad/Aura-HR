@@ -1,9 +1,9 @@
-# Core backend dependencies.
-# AI/RAG stack lives in requirements-ai.txt (installed on Day 12) — it pulls in
-# torch, which is a ~2GB download we don't need until the agent work starts.
+# All backend dependencies.
+#
+# Pinned to Django 6.0.x: DRF 3.17.2 (latest) imports
+# django.utils.cache.cc_delim_re, which Django 6.1 removed. Revisit when DRF
+# ships 6.1 support.
 
-# Pinned to 6.0.x: DRF 3.17.2 (latest) imports django.utils.cache.cc_delim_re,
-# which Django 6.1 removed. Revisit when DRF ships 6.1 support.
 Django==6.0.8
 djangorestframework==3.17.2
 djangorestframework-simplejwt==5.5.1
@@ -20,3 +20,10 @@ drf-spectacular==0.28.0
 # Production serving
 gunicorn==23.0.0
 whitenoise==6.9.0
+Faker==40.36.0
+# AI. google-genai is the only client library the agent uses — see
+# ai/client.py, which is the one place the provider is named.
+google-genai==2.20.0
+
+# Text extraction for the RAG ingest pipeline.
+pypdf==6.16.2

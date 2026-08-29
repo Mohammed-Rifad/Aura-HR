@@ -6,6 +6,9 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from audit.models import AuditLog
+from audit.services import log_action
+
 User = get_user_model()
 
 
@@ -16,12 +19,14 @@ class UserSerializer(serializers.ModelSerializer):
     """
 
     full_name = serializers.SerializerMethodField()
+    employee = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             "id",
             "email",
+            "employee",
             "first_name",
             "last_name",
             "full_name",
@@ -47,6 +52,21 @@ class UserSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj) -> str:
         return f"{obj.first_name} {obj.last_name}".strip() or obj.email
 
+    def get_employee(self, obj):
+        """
+        The user's HR record, if they have one.
+
+        A SerializerMethodField rather than a source= string, because HR and
+        Admin accounts can exist without an employee record — and a plain
+        field would raise on the missing relation instead of returning null.
+        """
+        employee = getattr(obj, "employee", None)
+        if employee is None:
+            return None
+        return {
+            "id": str(employee.id),
+            "employee_id": employee.employee_id,
+        }
 
 class LoginSerializer(TokenObtainPairSerializer):
     """
@@ -88,6 +108,14 @@ class LoginSerializer(TokenObtainPairSerializer):
                 "This account has not been verified yet. Contact HR.",
                 code="account_not_verified",
             )
+
+        # Only successful, verified logins are recorded. A failed password is
+        # not an audit event — it never became an action by anyone.
+        log_action(
+            action=AuditLog.Action.LOGIN,
+            instance=self.user,
+            actor=self.user,
+        )
 
         # Attach the user so the client doesn't need a follow-up /me call.
         data["user"] = UserSerializer(self.user).data

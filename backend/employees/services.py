@@ -7,9 +7,11 @@ what makes the employee_id rules enforceable.
 """
 
 import random
-
+from audit.models import AuditLog
+from audit.services import diff, log_action, snapshot
 from django.db import transaction
-
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from .models import Employee
 
 ID_ATTEMPTS = 10
@@ -57,8 +59,52 @@ def create_employee(*, employee_id=None, created_by=None, **fields):
     if department is None:
         raise ValueError("department is required to create an employee.")
 
-    return Employee.objects.create(
-        employee_id=employee_id or generate_employee_id(department),
-        created_by=created_by,
-        **fields,
+    employee = Employee.objects.create(
+    employee_id=employee_id or generate_employee_id(department),
+    created_by=created_by,
+    **fields,
     )
+
+    log_action(
+        action=AuditLog.Action.CREATE,
+        instance=employee,
+        actor=created_by,
+    )
+
+    return employee
+
+@transaction.atomic
+def onboard_employee(
+    *, email, first_name="", last_name="", phone="", role=None,
+    created_by=None, **fields,
+):
+    """
+    Create the login account and the employee record together.
+
+    One transaction on purpose. A person with an account but no HR record —
+    or an HR record nobody can log in as — is worse than a failed request.
+
+    The account starts with no usable password and is_verified=False. They
+    cannot log in until an admin verifies them, which is the gate built on
+    Day 2 doing its job.
+    """
+    User = get_user_model()
+    email = email.strip().lower()
+
+    if User.objects.filter(email=email).exists():
+        raise ValidationError(
+            {"email": "An account with this email already exists."}
+        )
+
+    user = User.objects.create_user(
+        email=email,
+        password=None,
+        first_name=first_name,
+        last_name=last_name,
+        phone=phone,
+        role=role or User.Roles.EMPLOYEE,
+        is_verified=False,
+    )
+
+    return create_employee(user=user, created_by=created_by, **fields)
+
