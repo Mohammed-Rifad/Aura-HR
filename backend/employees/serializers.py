@@ -137,21 +137,25 @@ class EmployeeDetailSerializer(serializers.ModelSerializer):
 class EmployeeWriteSerializer(serializers.ModelSerializer):
     """HR creating or updating someone. Not used for reads."""
 
-        # Account details. Used on create to make the login; ignored on update,
+    # Account details. Used on create to make the login; ignored on update,
     # because an employee's account is not edited from this form.
     email = serializers.EmailField(write_only=True, required=False)
     first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
     phone = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
-
     class Meta:
         model = Employee
         fields = [
-            "email", "first_name", "last_name", "phone",
-            "department", "designation", "manager",
-            "date_of_birth", "date_of_joining", "date_of_exit",
-            "employment_type", "status",
+            # Read-only, but they must be listed or the create response has
+            # no id — and the frontend redirects to /employees/undefined.
+            "id",
+            "employee_id",
+
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
             "department",
             "designation",
             "manager",
@@ -161,6 +165,8 @@ class EmployeeWriteSerializer(serializers.ModelSerializer):
             "employment_type",
             "status",
         ]
+        read_only_fields = ["id", "employee_id"]
+
 
     def update(self, instance, validated_data):
         # The user link is permanent. Without this, PATCH fails — the employee's

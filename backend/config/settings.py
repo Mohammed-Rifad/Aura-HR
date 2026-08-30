@@ -339,19 +339,6 @@ DEFAULT_FROM_EMAIL = config(
 
 
 # ---------------------------------------------------------------------------
-# AI (used from Day 12 — see docs/10-Build-Plan.md)
-# ---------------------------------------------------------------------------
-
-# ANTHROPIC_API_KEY = config("ANTHROPIC_API_KEY", default="")
-# AI_MODEL = config("AI_MODEL", default="claude-opus-5")
-
-EMBEDDING_MODEL = config(
-    "EMBEDDING_MODEL", default="sentence-transformers/all-MiniLM-L6-v2"
-)
-EMBEDDING_DIM = config("EMBEDDING_DIM", default=384, cast=int)
-
-
-# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 
