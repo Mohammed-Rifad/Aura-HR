@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, ShieldCheck, ShieldOff } from "lucide-react";
+import { KeyRound, Search, ShieldCheck, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
-
+import { TemporaryPasswordDialog } from "@/components/accounts/temporary-password-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +53,7 @@ export default function AccountsPage() {
   const [role, setRole] = useState(ALL);
   const [verified, setVerified] = useState(ALL);
   const [acting, setActing] = useState<string | null>(null);
+  const [issued, setIssued] = useState<{ email: string; password: string } | null>(null);
 
   const search = useDebounced(searchInput);
 
@@ -79,6 +80,18 @@ export default function AccountsPage() {
       setActing(null);
     }
   }
+    async function issuePassword(user: { id: string; email: string }) {
+    setActing(user.id);
+    try {
+      const { data } = await api.post(`/auth/users/${user.id}/set-password/`, {});
+      setIssued(data);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setActing(null);
+    }
+  }
+
 
   const waiting = data?.results.filter((u) => !u.is_verified).length ?? 0;
 
@@ -203,14 +216,26 @@ export default function AccountsPage() {
                       {user.id === me?.id ? (
                         <span className="text-xs text-muted-foreground">you</span>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant={user.is_verified ? "outline" : "default"}
-                          loading={acting === user.id}
-                          onClick={() => toggle(user)}
-                        >
-                          {user.is_verified ? "Revoke" : "Verify"}
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            loading={acting === user.id}
+                            onClick={() => issuePassword(user)}
+                          >
+                            <KeyRound className="size-3.5" />
+                            Set password
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant={user.is_verified ? "outline" : "default"}
+                            loading={acting === user.id}
+                            onClick={() => toggle(user)}
+                          >
+                            {user.is_verified ? "Revoke" : "Verify"}
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -220,6 +245,8 @@ export default function AccountsPage() {
           )}
         </CardContent>
       </Card>
+
+      <TemporaryPasswordDialog issued={issued} onClose={() => setIssued(null)} />
     </div>
   );
 }

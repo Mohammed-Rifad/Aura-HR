@@ -13,6 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useState } from "react";
+import { KeyRound } from "lucide-react";
+
+import { ChangePasswordDialog } from "@/components/layout/change-password-dialog";
+
 import { useAuth } from "@/store/auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
 
@@ -26,6 +31,8 @@ export function Topbar() {
   const router = useRouter();
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
+
+  const [changeOpen, setChangeOpen] = useState(false);
 
   if (!user) return null;
 
@@ -75,6 +82,10 @@ export function Topbar() {
             </div>
 
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setChangeOpen(true)}>
+              <KeyRound className="mr-2 size-4" />
+              Change password
+            </DropdownMenuItem>
 
             <DropdownMenuItem onClick={onLogout}>
               <LogOut className="mr-2 size-4" />
@@ -83,6 +94,8 @@ export function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+            <ChangePasswordDialog open={changeOpen} onOpenChange={setChangeOpen} />
+
     </header>
   );
 }

@@ -9,12 +9,16 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from audit.models import AuditLog
 from audit.services import log_action
 from django.db import transaction
+import secrets
+from drf_spectacular.utils import extend_schema
+
 from common.permissions import IsAdmin
 
 from .serializers import (
     LoginSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
+    TemporaryPasswordSerializer,
     UserSerializer,
 )
 
@@ -103,6 +107,47 @@ class UserAdminViewSet(
         )
 
         return Response(self.get_serializer(user).data)
+
+    @extend_schema(responses=TemporaryPasswordSerializer)
+    @action(detail=True, methods=["post"], url_path="set-password")
+    @transaction.atomic
+    def set_password(self, request, pk=None):
+        """
+        Issue a temporary password so a new account can be signed into.
+
+        Employees are created with an unusable password, which is right —
+        HR should not invent one, and an account should not be live the
+        moment it is created. The proper finish is an emailed invite link;
+        this is the smaller version, where an admin generates a password and
+        passes it on.
+        """
+        user = self.get_object()
+
+        # CHECK_REVOKE_TOKEN is on, so changing a password invalidates that
+        # user's existing tokens. An admin doing this to themselves would be
+        # logged out mid-request.
+        if user == request.user:
+            raise ValidationError(
+                "Use Change password for your own account."
+            )
+
+        # secrets, not random. random is seeded predictably and is not safe
+        # for anything anyone could want to guess.
+        password = secrets.token_urlsafe(12)
+
+        user.set_password(password)
+        user.save(update_fields=["password"])
+
+        log_action(
+            action=AuditLog.Action.UPDATE,
+            instance=user,
+            actor=request.user,
+            # The password is deliberately absent. An audit log that records
+            # credentials is a liability, not a control.
+            changes={"password": {"before": "***", "after": "reset by admin"}},
+        )
+
+        return Response({"email": user.email, "password": password})
 
 
 class LogoutView(generics.GenericAPIView):

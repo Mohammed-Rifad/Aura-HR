@@ -185,3 +185,15 @@ class LogoutSerializer(serializers.Serializer):
 
     def save(self, **kwargs):
         self.token.blacklist()
+
+class TemporaryPasswordSerializer(serializers.Serializer):
+    """
+    The response from set-password.
+
+    This is the only moment the password exists in readable form anywhere.
+    Django stores a hash; after this response is sent, nothing in the system
+    can recover it.
+    """
+
+    email = serializers.EmailField(read_only=True)
+    password = serializers.CharField(read_only=True)
