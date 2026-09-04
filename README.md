@@ -1,4 +1,5 @@
 # AURA HR
+![tests](https://github.com/MohammedRifadCyberSquare/Aura-HR/actions/workflows/tests.yml/badge.svg)
 
 An HR platform with an AI assistant that can only see what you can see.
 
