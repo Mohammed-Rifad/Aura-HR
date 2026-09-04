@@ -27,3 +27,9 @@ google-genai==2.20.0
 
 # Text extraction for the RAG ingest pipeline.
 pypdf==6.16.2
+
+# Testing
+pytest==9.1.2
+pytest-django==4.13.1
+pytest-cov==8.0.0
+factory-boy==3.4.0
