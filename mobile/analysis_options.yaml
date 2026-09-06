@@ -1,0 +1,29 @@
+# Strict linting. very_good_analysis is a stricter ruleset than the default
+# flutter_lints — it catches unused code, missing types, and unsafe patterns
+# before they reach a review.
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    # Written by build_runner. Not ours to lint.
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+linter:
+  rules:
+    # very_good_analysis wants a doc comment on every public class and
+    # method. Useful in a shared library, noise in an app.
+    public_member_api_docs: false
+
+    # A new lint about constructor declaration syntax. Neither form its
+    # message suggests actually compiles on Dart 3.13, so it is off until
+    # the intended syntax is clear. Better a disabled rule than code
+    # written to satisfy a message nobody understands.
+    unnecessary_type_name_in_constructor: false
