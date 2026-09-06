@@ -1,4 +1,5 @@
 import 'package:aura_hr/features/auth/presentation/auth_controller.dart';
+import 'package:aura_hr/features/leave/presentation/leave_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,7 +16,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-        final user = ref.watch(authControllerProvider).value;
+        // final user = ref.watch(authControllerProvider).value;
 
 
     return Scaffold(
@@ -36,9 +37,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       // refetch everything.
       body: IndexedStack(
         index: _tab,
-        children: [
-          _Placeholder(title: 'My leave', subtitle: '${user?.fullName}'),
-          const _Placeholder(title: 'Assistant', subtitle: 'Day 7'),
+        children: const [
+          LeaveScreen(),
+          _Placeholder(title: 'Assistant', subtitle: 'Day 7'),
         ],
       ),
 
