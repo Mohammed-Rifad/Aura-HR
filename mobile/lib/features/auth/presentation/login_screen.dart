@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:aura_hr/core/failure.dart';
 import 'package:aura_hr/features/auth/presentation/auth_controller.dart';
 import 'package:flutter/material.dart';
@@ -14,11 +16,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  Timer? _slowTimer;
+  bool _slow = false;
 
   @override
   void dispose() {
-    // Controllers hold native resources. Not disposing them leaks memory
-    // every time the screen is rebuilt.
+    _slowTimer?.cancel();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -27,10 +30,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    // The API sleeps after 15 minutes idle and takes about a minute to wake.
+    // If nothing has come back in five seconds, say so — a silent spinner
+    // for that long reads as a broken app.
+    setState(() => _slow = false);
+    _slowTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) setState(() => _slow = true);
+    });
+
     await ref.read(authControllerProvider.notifier).login(
           email: _email.text.trim(),
           password: _password.text,
         );
+
+    _slowTimer?.cancel();
+    if (mounted) setState(() => _slow = false);
   }
 
   @override
@@ -121,6 +135,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             )
                           : const Text('Sign in'),
                     ),
+                                        if (busy && _slow) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Waking the server up. This can take up to a minute '
+                        'the first time.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+
                   ],
                 ),
               ),

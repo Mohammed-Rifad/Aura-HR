@@ -1,4 +1,4 @@
-import 'package:aura_hr/core/failure.dart';
+import 'package:aura_hr/core/widgets/error_view.dart';
 import 'package:aura_hr/features/auth/presentation/auth_controller.dart';
 import 'package:aura_hr/features/leave/domain/leave_balance.dart';
 import 'package:aura_hr/features/leave/presentation/apply_leave_sheet.dart';
@@ -22,7 +22,7 @@ class LeaveScreen extends ConsumerWidget {
 
     final balances = ref.watch(leaveBalancesProvider);
 
-         return Scaffold(
+    return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         // Only offer it when there are balances to apply against.
         onPressed: balances.value == null || balances.value!.isEmpty
@@ -35,8 +35,9 @@ class LeaveScreen extends ConsumerWidget {
         onRefresh: () async => ref.invalidate(leaveBalancesProvider),
         child: balances.when(
           loading: () => const _Skeletons(),
-          error: (error, _) => _Message(
-            error is Failure ? error.message : 'Could not load your balance.',
+          error: (error, _) => ErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(leaveBalancesProvider),
           ),
           data: (rows) => rows.isEmpty
               ? const _Message('No leave balance has been set up yet.')

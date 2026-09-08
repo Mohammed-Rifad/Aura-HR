@@ -15,6 +15,11 @@ class AppConfig {
     defaultValue: 'https://aura-hr-j0jp.onrender.com/api/v1',
   );
 
-  /// Requests that take longer than this are treated as failed.
-  static const Duration timeout = Duration(seconds: 30);
+  /// Generous on purpose.
+  ///
+  /// The API runs on a free tier that sleeps after 15 minutes idle, and the
+  /// first request after that waits about 50 seconds for the container to
+  /// start. A 30-second timeout guarantees the first request of the day
+  /// fails.
+  static const Duration timeout = Duration(seconds: 75);
 }
