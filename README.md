@@ -1,5 +1,6 @@
 # AURA HR
 ![tests](https://github.com/Mohammed-Rifad/Aura-HR/actions/workflows/tests.yml/badge.svg)
+![mobile](https://github.com/Mohammed-Rifad/Aura-HR/actions/workflows/mobile.yml/badge.svg)
 
 An HR platform with an AI assistant that can only see what you can see.
 
@@ -8,10 +9,13 @@ questions about them by calling the same scoped queries the REST API uses. It
 can propose changes, but it can never make one without a person clicking
 approve.
 
+A Django backend, a Next.js web app, and a Flutter mobile app, all against
+the same API.
 
 ```mermaid
 flowchart LR
     B["Browser"]
+    M["Flutter<br/>Android"]
     N["Next.js 16<br/>Vercel"]
     D["Django REST<br/>Render · Docker"]
     S["Service layer<br/>every write goes through here"]
@@ -21,6 +25,7 @@ flowchart LR
 
     B -->|JWT| N
     N -->|REST + SSE| D
+    M -->|"REST + SSE"| D
     D --> S
     D --> A
     A -->|"same scoped queries"| S
@@ -31,6 +36,7 @@ flowchart LR
 
 **Live demo:** https://aura-hr-rho.vercel.app
 **API docs:** https://aura-hr-j0jp.onrender.com/api/docs/
+**Mobile:** `mobile/` — build with `flutter build apk --release`
 
 > The backend is on a free tier and sleeps after 15 minutes idle. The first
 > request may take ~50 seconds.
@@ -146,12 +152,53 @@ allowed, and how long it took. Refusals are logged as carefully as
 successes — they're the record of the scoping rules firing. Visible at
 **AI activity** as an admin.
 
+## The mobile app
+
+A Flutter client for the same API, in `mobile/`.
+
+Four screens: sign in, leave balance, apply for leave, and the assistant with
+the same approval card. A manager can approve an AI-proposed leave decision
+from their phone, and it goes through the identical server-side checks — the
+gate lives in the agent loop, so no client can route around it.
+
+**Shape**
+
+Feature folders, each split into `data` (talks to HTTP), `domain` (plain
+models) and `presentation` (screens). A repository throws the app's own
+`Failure` types, never a `DioException`, so no screen ever sees a status code.
+
+**Worth pointing at**
+
+- Tokens live in the Android Keystore, not shared preferences
+- A dio interceptor renews an expired token and retries once, with a
+  single-flight guard so five simultaneous 401s cause one refresh, not five
+- Server-sent events are parsed through a buffer, because network chunks do
+  not line up with event boundaries — a bug that works locally and fails on a
+  real connection
+- Models are generated from the API's JSON, which caught a field the web app
+  had typed wrong for weeks (`LeaveBalance.id` is an int, not a string)
+- One `redirect` in go_router protects every private route, rather than each
+  screen remembering to check
+
+**Running it**
+
+```bash
+cd mobile
+flutter pub get
+dart run build_runner build
+flutter run
+
+# against a local backend (10.0.2.2 is how an emulator reaches your machine)
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+```
+
 ## Architecture
 
 ```
-Next.js (Vercel)  ──►  Django REST (Render, Docker)  ──►  Postgres + pgvector (Neon)
-                              │
-                              └──►  Gemini API
+Next.js (Vercel)  ─┐
+                   ├─►  Django REST (Render, Docker)  ──►  Postgres + pgvector (Neon)
+Flutter (Android) ─┘                │
+                                    └──►  Gemini API
 ```
 
 | Decision | Why |
@@ -176,10 +223,31 @@ Next.js (Vercel)  ──►  Django REST (Render, Docker)  ──►  Postgres +
 
 **Backend** — Django 6.0, DRF 3.17, Postgres + pgvector, `google-genai`,
 gunicorn, Docker
-**Frontend** — Next.js 16, React 19, Tailwind 4, Base UI, zustand, axios
-**Infra** — Render, Vercel, Neon
+**Web** — Next.js 16, React 19, Tailwind 4, Base UI, zustand, axios
+**Mobile** — Flutter 3.47, Riverpod, dio, freezed, go_router
+**Infra** — Render, Vercel, Neon, GitHub Actions
 
-~7,600 lines of Python and ~6,600 of TypeScript across 98 API endpoints.
+~7,600 lines of Python, ~6,600 of TypeScript and ~2,400 of Dart, across 98
+API endpoints.
+
+## Tests
+
+78 tests, running in CI on every push.
+
+| | What they cover |
+|---|---|
+| **Backend** (63) | Row scoping across all four roles, every AI tool's access control, the approval gate, and the leave balance arithmetic |
+| **Mobile** (15) | Error mapping, the auth repository including logout with no network, and widget tests for the login screen |
+
+```bash
+cd backend && pytest
+cd mobile && flutter test
+```
+
+Most of them assert that something did **not** happen — that a manager cannot
+see another team, that proposing a write changes nothing. That shape of test
+is what catches security bugs; the one where `if` should have been `elif` was
+invisible to every test that only checked the happy path.
 
 ## Running it locally
 
@@ -219,12 +287,11 @@ python manage.py ingest_document sample_docs/employee_handbook.md --title "Emplo
 
 Being honest about the edges:
 
-- **Tests are thin.** 35 tests, all on the leave module — the part with
-  arithmetic that must not drift. The rest is manually verified across all
-  four roles.
 - **No emailed invites.** An admin issues a temporary password and passes it
   on. The right version is a one-time link so the credential never goes
   through a third person, and a forced change on first login.
+- **The release APK is debug-signed.** Fine for sharing a demo, not
+  publishable. Real signing means a keystore kept out of git.
 - **Uploaded files aren't persistent** — the free tier's disk is ephemeral.
   Document *chunks* live in Postgres so search works, but the original files
   don't survive a redeploy. S3 would fix it.

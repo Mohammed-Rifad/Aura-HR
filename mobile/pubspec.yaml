@@ -39,8 +39,26 @@ dependencies:
   json_annotation: ^4.12.0
   riverpod_annotation: ^4.0.7
 
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+  # Android 8+ crops the foreground to a circle or squircle, so it needs
+  # the padded version. The background is a flat colour behind it.
+  adaptive_icon_background: "#4F46E5"
+  adaptive_icon_foreground: "assets/icon_foreground.png"
+
+flutter_native_splash:
+  color: "#4F46E5"
+  image: assets/icon_foreground.png
+  android_12:
+    color: "#4F46E5"
+    image: assets/icon_foreground.png
+
 dev_dependencies:
   build_runner: ^2.16.1
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
   flutter_test:
     sdk: flutter
   freezed: ^4.0.1
