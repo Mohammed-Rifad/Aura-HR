@@ -1,6 +1,7 @@
 import 'package:aura_hr/core/failure.dart';
 import 'package:aura_hr/features/auth/presentation/auth_controller.dart';
 import 'package:aura_hr/features/leave/domain/leave_balance.dart';
+import 'package:aura_hr/features/leave/presentation/apply_leave_sheet.dart';
 import 'package:aura_hr/features/leave/presentation/leave_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,22 +22,31 @@ class LeaveScreen extends ConsumerWidget {
 
     final balances = ref.watch(leaveBalancesProvider);
 
-    return RefreshIndicator(
-      // invalidate throws the cached value away, so the provider refetches.
-      onRefresh: () async => ref.invalidate(leaveBalancesProvider),
-      child: balances.when(
-        loading: () => const _Skeletons(),
-        error: (error, _) => _Message(
-          error is Failure ? error.message : 'Could not load your balance.',
+         return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        // Only offer it when there are balances to apply against.
+        onPressed: balances.value == null || balances.value!.isEmpty
+            ? null
+            : () => showApplyLeaveSheet(context, balances: balances.value!),
+        icon: const Icon(Icons.add),
+        label: const Text('Apply'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(leaveBalancesProvider),
+        child: balances.when(
+          loading: () => const _Skeletons(),
+          error: (error, _) => _Message(
+            error is Failure ? error.message : 'Could not load your balance.',
+          ),
+          data: (rows) => rows.isEmpty
+              ? const _Message('No leave balance has been set up yet.')
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: rows.length,
+                  itemBuilder: (context, index) =>
+                      _BalanceCard(balance: rows[index]),
+                ),
         ),
-        data: (rows) => rows.isEmpty
-            ? const _Message('No leave balance has been set up yet.')
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: rows.length,
-                itemBuilder: (context, index) =>
-                    _BalanceCard(balance: rows[index]),
-              ),
       ),
     );
   }

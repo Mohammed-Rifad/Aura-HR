@@ -1,3 +1,4 @@
+import 'package:aura_hr/features/assistant/presentation/assistant_screen.dart';
 import 'package:aura_hr/features/auth/presentation/auth_controller.dart';
 import 'package:aura_hr/features/leave/presentation/leave_screen.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         index: _tab,
         children: const [
           LeaveScreen(),
-          _Placeholder(title: 'Assistant', subtitle: 'Day 7'),
+          AssistantScreen(),
         ],
       ),
 
@@ -57,27 +58,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             selectedIcon: Icon(Icons.chat_bubble),
             label: 'Assistant',
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Text(subtitle),
         ],
       ),
     );
