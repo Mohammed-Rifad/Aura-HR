@@ -263,12 +263,18 @@ def search_employees(user, query=None, department=None, status=None):
     )
 
     if query:
-        queryset = queryset.filter(
-            Q(employee_id__icontains=query)
-            | Q(user__first_name__icontains=query)
-            | Q(user__last_name__icontains=query)
-            | Q(user__email__icontains=query)
-        )
+        # Match each word separately. A full name like "Robert Johnson" has
+        # no single field containing it — "Robert" is the first name and
+        # "Johnson" is the last — so matching the whole string against each
+        # field finds nobody.
+        for term in query.split():
+            queryset = queryset.filter(
+                Q(employee_id__icontains=term)
+                | Q(user__first_name__icontains=term)
+                | Q(user__last_name__icontains=term)
+                | Q(user__email__icontains=term)
+            )
+
 
     if department:
         queryset = queryset.filter(
